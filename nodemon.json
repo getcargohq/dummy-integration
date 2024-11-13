@@ -1,0 +1,7 @@
+{
+  "watch": ["src", "utils", "types.ts", "config.ts", "app.ts", "index.ts"],
+  "ext": "ts",
+  "ignore": ["src/**/*.test.ts", "public/*"],
+  "verbose": false,
+  "exec": "ts-node index.ts"
+}
