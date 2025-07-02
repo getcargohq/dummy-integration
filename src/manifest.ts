@@ -1,5 +1,4 @@
 import { IntegrationManifest } from "../types";
-import { productColumns } from "./schemas/product";
 
 const svg = `
 <svg stroke="currentColor" fill="none" stroke-width="2" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round" xmlns="http://www.w3.org/2000/svg"><path d="M21 7 6.82 21.18a2.83 2.83 0 0 1-3.99-.01v0a2.83 2.83 0 0 1 0-4L17 3"></path><path d="m16 2 6 6"></path><path d="M12 16H4"></path></svg>
@@ -11,7 +10,22 @@ export const manifest: IntegrationManifest = {
   icon: svg,
   description: "Dummy integration",
   color: "#b6b7fd",
-  autocompletes: [],
+  autocompletes: [
+    {
+      slug: "listObjectProperties",
+      params: {
+        jsonSchema: {
+          type: "object",
+          properties: {
+            objectType: {
+              type: "string",
+            },
+          },
+          required: ["objectType"],
+        },
+      },
+    },
+  ],
   dynamicSchemas: [],
   connector: {
     config: {
@@ -110,9 +124,6 @@ export const manifest: IntegrationManifest = {
                         name: {
                           title: "Name",
                           type: "string",
-                          anyOf: productColumns.map((column) => {
-                            return { const: column.slug, title: column.label };
-                          }),
                         },
                         value: {
                           $ref: "#/definitions/expression",
@@ -129,8 +140,20 @@ export const manifest: IntegrationManifest = {
           required: ["objectType", "action"],
         },
         uiSchema: {
+          id: {
+            "ui:widget": "ExpressionWidget",
+          },
           mappings: {
             items: {
+              name: {
+                "ui:widget": "IntegrationAutocompleteWidget",
+                "ui:options": {
+                  slug: "listObjectProperties",
+                  params: {
+                    objectType: "$this.$parent.$parent.$parent.objectType",
+                  },
+                },
+              },
               value: {
                 "ui:widget": "ExpressionWidget",
               },

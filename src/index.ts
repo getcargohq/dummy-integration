@@ -6,6 +6,7 @@ import { writeAction } from "./actions/write";
 import { readAction } from "./actions/read";
 import { validateAction } from "../utils";
 import { Integration } from "../types";
+import { autocomplete } from "./autocomplete";
 
 export const buildDummyIntegration = (): Integration => {
   return {
@@ -22,9 +23,10 @@ export const buildDummyIntegration = (): Integration => {
           validateAction(payload.config, zodReadActionConfig),
       },
     },
+    autocomplete: (payload) => autocomplete(payload),
     model: {
       fetch: (payload) => modelFetch(payload),
     },
-    authenticate: async (payload) => authenticate(payload),
+    authenticate: (payload) => authenticate(payload),
   };
 };

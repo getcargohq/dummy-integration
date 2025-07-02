@@ -21,7 +21,7 @@ export const readAction = async (
 
   const { objectType, id } = config;
 
-  const product = await dummyClient[objectType].get(id);
+  const product = await dummyClient[objectType].get(id.toString());
 
   return {
     outcome: "executed",

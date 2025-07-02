@@ -21,7 +21,7 @@ export const writeAction = async (
   const dummyClient = await buildDummyClient();
 
   if (config.action === "delete") {
-    const product = await dummyClient[objectType].delete(config.id);
+    const product = await dummyClient[objectType].delete(config.id.toString());
 
     return {
       outcome: "executed",
@@ -34,7 +34,7 @@ export const writeAction = async (
 
   if (config.action === "update") {
     const product = await dummyClient[objectType].update(
-      config.id,
+      config.id.toString(),
       Object.fromEntries(
         mappings.map((mapping) => [mapping.name, mapping.value]),
       ),
