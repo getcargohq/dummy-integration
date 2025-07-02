@@ -1,8 +1,14 @@
 import type { Schema as JsonSchema } from "jsonschema";
 
-export type IntegrationManifestRateLimit = {
+export type RateLimit = {
   unit: "day" | "hour" | "minute" | "second";
   max: number;
+};
+
+export type IntegrationRateLimit = RateLimit & {
+  config: {
+    jsonSchema: JsonSchema;
+  };
 };
 
 export type IntegrationManifestRetry = {
@@ -22,7 +28,8 @@ export type IntegrationManifestAction = {
     jsonSchema: JsonSchema;
     uiSchema: Record<string, any>;
   };
-  // to calculate the retry policy, you can use: https://temporal-time.netlify.app/
+  rateLimits?: IntegrationRateLimit[];
+  isSerialized?: boolean;
   retry?: IntegrationManifestRetry;
   executing?: {
     retry: IntegrationManifestRetry;
@@ -34,12 +41,13 @@ export type IntegrationManifestAction = {
 export type IntegrationManifestModelMode =
   | {
       kind: "ingest";
+      autoIngest?: boolean;
     }
   | {
       kind: "fetch";
-      autoRefetch: boolean;
       isIncremental: boolean;
       minIntervalInSeconds?: number;
+      autoFetch?: boolean;
     };
 
 export type IntegrationManifestModelVariant = {
@@ -50,6 +58,7 @@ export type IntegrationManifestModelVariant = {
     jsonSchema: JsonSchema;
     uiSchema: Record<string, any>;
   };
+  rateLimits?: IntegrationRateLimit[];
   retry?: IntegrationManifestRetry;
   fetching?: {
     retry: IntegrationManifestRetry;
@@ -67,11 +76,19 @@ export type IntegrationManifestModel = {
   variants: IntegrationManifestModelVariant[];
 };
 
+export type IntegrationManifestAgentDeployment = {
+  description: string;
+  config: {
+    jsonSchema: JsonSchema;
+    uiSchema: Record<string, any>;
+  };
+};
+
 export type IntegrationManifest = {
   name: string;
   description: string;
-  color: string;
   icon: string;
+  color: string;
   url: string;
   autocompletes: {
     slug: string;
@@ -87,11 +104,14 @@ export type IntegrationManifest = {
     };
   }[];
   connector: {
+    rateLimit?: RateLimit;
     config: {
       jsonSchema: JsonSchema;
       uiSchema: Record<string, any>;
     };
-    rateLimit?: IntegrationManifestRateLimit;
+    caching?: {
+      isCompatible?: boolean;
+    };
   };
   users?: {
     config: {
@@ -101,12 +121,36 @@ export type IntegrationManifest = {
   };
   model?: IntegrationManifestModel;
   actions: Record<string, IntegrationManifestAction>;
+  agent?: { deployment: IntegrationManifestAgentDeployment };
 };
 
 export type IntegrationConnector<Config> = {
   uuid: string;
   workspaceUuid: string;
   config: Config;
+};
+
+export type IntegrationAgent<DeploymentConfig> = {
+  uuid: string;
+  workspaceUuid: string;
+  deployments: { config: DeploymentConfig }[];
+  name: string;
+  icon: {
+    color: "grey" | "green" | "purple" | "yellow" | "blue" | "red";
+  };
+};
+
+export type IntegrationAgentAttachment = {
+  s3Filename: string;
+  name: string;
+  contentType: string;
+};
+
+export type IntegrationAgentMessage<MessageMeta> = {
+  text: string;
+  userUuid?: string;
+  attachments: IntegrationAgentAttachment[];
+  meta: MessageMeta;
 };
 
 export type IntegrationAuthenticatePayload<ConnectorConfig = unknown> = {
@@ -120,6 +164,7 @@ export type IntegrationListUsersPayload<ConnectorConfig = unknown> = {
 export type IntegrationAuthenticateResult =
   | {
       outcome: "success";
+      config?: Record<string, unknown>;
     }
   | {
       outcome: "error";
@@ -133,12 +178,14 @@ export type IntegrationActionExecutePayload<
 > = {
   connector: IntegrationConnector<ConnectorConfig>;
   config: Config;
+  isDryExecution?: boolean;
 };
 
 export type IntegrationActionExecuteResult =
   | {
       outcome: "executed";
       data?: Record<string, any>;
+      unitsCount?: number;
       title: string;
       iconUrl?: string;
       childIndex?: number;
@@ -206,6 +253,7 @@ export type IntegrationColumnType =
   | "array"
   | "date"
   | "boolean"
+  | "vector"
   | "any";
 
 export type IntegrationColumn = {
@@ -248,6 +296,28 @@ export type IntegrationModelRemovePayload<
   config: Config;
 };
 
+export type IntegrationModelPausePayload<
+  ConnectorConfig = unknown,
+  Slug = unknown,
+  Config = unknown,
+> = {
+  connector: IntegrationConnector<ConnectorConfig>;
+  uuid: string;
+  slug: Slug;
+  config: Config;
+};
+
+export type IntegrationModelResumePayload<
+  ConnectorConfig = unknown,
+  Slug = unknown,
+  Config = unknown,
+> = {
+  connector: IntegrationConnector<ConnectorConfig>;
+  uuid: string;
+  slug: Slug;
+  config: Config;
+};
+
 export type IntegrationModelFetchPayload<
   ConnectorConfig = unknown,
   Slug = unknown,
@@ -259,6 +329,7 @@ export type IntegrationModelFetchPayload<
   slug: Slug;
   config: Config;
   meta?: Meta;
+  isDryFetch?: boolean;
 };
 
 export type IntegrationModelCountPayload<
@@ -271,13 +342,19 @@ export type IntegrationModelCountPayload<
   config: Config;
 };
 
-export type IntegrationModelCreateResult<Config = unknown> = {
-  config: Config;
-};
+export type IntegrationModelCreateResult<Config = unknown> =
+  | {
+      outcome: "created";
+      config: Config;
+    }
+  | { outcome: "notCreated"; errorMessage: string };
 
-export type IntegrationModelUpdateResult<Config = unknown> = {
-  config: Config;
-};
+export type IntegrationModelUpdateResult<Config = unknown> =
+  | {
+      outcome: "updated";
+      config: Config;
+    }
+  | { outcome: "notUpdated"; errorMessage: string };
 
 export type IntegrationModelRecord = {
   action: "insert" | "update" | "upsert" | "remove";
@@ -293,12 +370,18 @@ export type IntegrationModelFetchResult<Meta = unknown> =
       titleColumnSlug: string;
       timeColumnSlug?: string;
       count?: number;
-      data: {
-        kind: "records";
-        records: IntegrationModelRecord[];
-        hasMore: boolean;
-        meta?: Meta;
-      };
+      data:
+        | {
+            kind: "command";
+            command: string;
+            materialization: "table" | "view";
+          }
+        | {
+            kind: "records";
+            records: IntegrationModelRecord[];
+            hasMore: boolean;
+            meta?: Meta;
+          };
     }
   | {
       outcome: "fetching";
@@ -306,13 +389,78 @@ export type IntegrationModelFetchResult<Meta = unknown> =
       idColumnSlug: string;
       titleColumnSlug: string;
       timeColumnSlug?: string;
-      data: {
-        meta?: Meta;
-      };
+      data:
+        | {
+            kind: "command";
+          }
+        | {
+            kind: "records";
+            meta?: Meta;
+          };
     };
 
 export type IntegrationModelCountResult = {
   count: number;
+};
+
+export type IntegrationAgentFindChatPayload<
+  ConnectorConfig = unknown,
+  AgentDeploymentConfig = unknown,
+  Event = unknown,
+> = {
+  connector: IntegrationConnector<ConnectorConfig>;
+  agent: IntegrationAgent<AgentDeploymentConfig>;
+  event: Event;
+};
+
+export type IntegrationAgentFindChatResult<Meta = unknown> =
+  | {
+      outcome: "found";
+      agentUuid: string;
+      slug: string;
+      meta: Meta;
+    }
+  | {
+      outcome: "notFound";
+    };
+
+export type IntegrationAgentRetrieveMessagesPayload<
+  ConnectorConfig = unknown,
+  AgentDeploymentConfig = unknown,
+  Event = unknown,
+> = {
+  isNewChat: boolean;
+  connector: IntegrationConnector<ConnectorConfig>;
+  agent: IntegrationAgent<AgentDeploymentConfig>;
+  event: Event;
+};
+
+export type IntegrationAgentRetrieveMessagesResult<MessageMeta = unknown> =
+  | {
+      outcome: "retrieved";
+      messages: IntegrationAgentMessage<MessageMeta>[];
+    }
+  | {
+      outcome: "notRetrieved";
+    };
+
+export type IntegrationAgentHandleMessagePayload<
+  ConnectorConfig = unknown,
+  AgentDeploymentConfig = unknown,
+  Meta = unknown,
+  ChatMeta = unknown,
+> = {
+  connector: IntegrationConnector<ConnectorConfig>;
+  agent: IntegrationAgent<AgentDeploymentConfig>;
+  meta: Meta | null;
+  chat: {
+    meta: ChatMeta;
+  };
+  text: string;
+};
+
+export type IntegrationAgentHandleMessageResult<Meta = unknown> = {
+  meta: Meta;
 };
 
 export type IntegrationUser = {
@@ -348,6 +496,32 @@ export type Integration = {
     count?: (
       payload: IntegrationModelCountPayload<any, any, any>,
     ) => Promise<IntegrationModelCountResult>;
+    create?: (
+      payload: IntegrationModelCreatePayload<any, any, any>,
+    ) => Promise<IntegrationModelCreateResult<any>>;
+    update?: (
+      payload: IntegrationModelUpdatePayload<any, any, any>,
+    ) => Promise<IntegrationModelUpdateResult<any>>;
+    remove?: (
+      payload: IntegrationModelRemovePayload<any, any, any>,
+    ) => Promise<void>;
+    pause?: (
+      payload: IntegrationModelPausePayload<any, any, any>,
+    ) => Promise<void>;
+    resume?: (
+      payload: IntegrationModelResumePayload<any, any, any>,
+    ) => Promise<void>;
+  };
+  agent?: {
+    findChat: (
+      payload: IntegrationAgentFindChatPayload<any, any, any>,
+    ) => Promise<IntegrationAgentFindChatResult<any>>;
+    retrieveMessages: (
+      payload: IntegrationAgentRetrieveMessagesPayload<any, any, any>,
+    ) => Promise<IntegrationAgentRetrieveMessagesResult<any>>;
+    handleMessage: (
+      payload: IntegrationAgentHandleMessagePayload<any, any, any, any>,
+    ) => Promise<IntegrationAgentHandleMessageResult<any>>;
   };
   autocomplete?: (
     payload: IntegrationAutocompletePayload<any, any, any>,

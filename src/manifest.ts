@@ -157,7 +157,7 @@ export const manifest: IntegrationManifest = {
         },
         mode: {
           kind: "fetch",
-          autoRefetch: true,
+          autoFetch: true,
           isIncremental: false,
           minIntervalInSeconds: 30 * 60, // 30min
         },
