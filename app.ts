@@ -35,19 +35,6 @@ export const buildApp = (dependencies: Dependencies) => {
     res.json(result);
   });
 
-  integrationRouter.post("/actions/:slug/validate", async (req, res) => {
-    const { slug } = req.params;
-
-    if (integration.actions[slug] === undefined) {
-      res.status(404);
-      return;
-    }
-
-    const result = await integration.actions[slug].validate(req.body);
-
-    res.json(result);
-  });
-
   integrationRouter.post("/actions/:slug/execute", async (req, res) => {
     const { slug } = req.params;
 

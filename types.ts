@@ -1,4 +1,5 @@
 import type { Schema as JsonSchema } from "jsonschema";
+import { z } from "zod";
 
 export type RateLimit = {
   unit: "day" | "hour" | "minute" | "second";
@@ -191,16 +192,6 @@ export type IntegrationActionExecuteResult =
       childIndex?: number;
     }
   | { outcome: "executing" };
-
-export type IntegrationActionValidatePayload<Config = unknown> = {
-  config: Config;
-};
-
-export type IntegrationActionValidateResult =
-  | {
-      outcome: "valid";
-    }
-  | { outcome: "notValid"; errorMessage: string };
 
 export type IntegrationAutocompletePayload<
   ConnectorConfig = unknown,
@@ -471,10 +462,12 @@ export type IntegrationUser = {
   profileImage?: string | undefined;
 };
 
-export type IntegrationAction = {
-  validate: (
-    payload: IntegrationActionValidatePayload<any>,
-  ) => Promise<IntegrationActionValidateResult>;
+export type IntegrationAction<
+  ConfigSchema extends z.ZodTypeAny = z.ZodTypeAny,
+> = {
+  config: {
+    schema: ConfigSchema;
+  };
   execute: (
     payload: IntegrationActionExecutePayload<any, any>,
   ) => Promise<IntegrationActionExecuteResult>;
