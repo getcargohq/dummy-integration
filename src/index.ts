@@ -4,7 +4,6 @@ import { modelFetch } from "./model/fetch";
 import { zodReadActionConfig, zodWriteActionConfig } from "./dummy";
 import { writeAction } from "./actions/write";
 import { readAction } from "./actions/read";
-import { validateAction } from "../utils";
 import { Integration } from "../types";
 import { autocomplete } from "./autocomplete";
 
@@ -13,14 +12,16 @@ export const buildDummyIntegration = (): Integration => {
     manifest,
     actions: {
       write: {
+        config: {
+          schema: zodWriteActionConfig,
+        },
         execute: (payload) => writeAction(payload),
-        validate: async (payload) =>
-          validateAction(payload.config, zodWriteActionConfig),
       },
       read: {
+        config: {
+          schema: zodReadActionConfig,
+        },
         execute: (payload) => readAction(payload),
-        validate: async (payload) =>
-          validateAction(payload.config, zodReadActionConfig),
       },
     },
     autocomplete: (payload) => autocomplete(payload),
