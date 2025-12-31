@@ -1,128 +1,40 @@
 import type { Schema as JsonSchema } from "jsonschema";
-import { z } from "zod";
+import { z } from "zod/v4";
 
-export type RateLimit = {
+// COMMON
+
+export type IntegrationRateLimit = {
   unit: "day" | "hour" | "minute" | "second";
   max: number;
 };
 
-export type IntegrationRateLimit = RateLimit & {
+export type IntegrationRateLimitWithConfig = IntegrationRateLimit & {
   config: {
     jsonSchema: JsonSchema;
   };
 };
 
-export type IntegrationManifestRetry = {
+export type IntegrationRetry = {
   maximumAttempts?: number;
   initialInterval?: number;
   backoffCoefficient?: number;
 };
 
-export type IntegrationManifestActionChild = {
-  text: string;
-};
+export type IntegrationColumnType =
+  | "string"
+  | "number"
+  | "object"
+  | "array"
+  | "date"
+  | "boolean"
+  | "vector"
+  | "any";
 
-export type IntegrationManifestAction = {
-  name: string;
-  description: string;
-  config: {
-    jsonSchema: JsonSchema;
-    uiSchema: Record<string, any>;
-  };
-  rateLimits?: IntegrationRateLimit[];
-  isSerialized?: boolean;
-  retry?: IntegrationManifestRetry;
-  executing?: {
-    retry: IntegrationManifestRetry;
-    withRateLimit: boolean;
-  };
-  children?: IntegrationManifestActionChild[];
-};
-
-export type IntegrationManifestModelMode =
-  | {
-      kind: "ingest";
-      autoIngest?: boolean;
-    }
-  | {
-      kind: "fetch";
-      isIncremental: boolean;
-      minIntervalInSeconds?: number;
-      autoFetch?: boolean;
-    };
-
-export type IntegrationManifestModelVariant = {
-  condition?: {
-    slugs: string[];
-  };
-  config: {
-    jsonSchema: JsonSchema;
-    uiSchema: Record<string, any>;
-  };
-  rateLimits?: IntegrationRateLimit[];
-  retry?: IntegrationManifestRetry;
-  fetching?: {
-    retry: IntegrationManifestRetry;
-    withRateLimit: boolean;
-  };
-  mode: IntegrationManifestModelMode;
-  preview: "none" | "records" | "count";
-};
-
-export type IntegrationManifestModel = {
-  slug: {
-    jsonSchema: JsonSchema;
-    uiSchema: Record<string, any>;
-  };
-  variants: IntegrationManifestModelVariant[];
-};
-
-export type IntegrationManifestAgentDeployment = {
-  description: string;
-  config: {
-    jsonSchema: JsonSchema;
-    uiSchema: Record<string, any>;
-  };
-};
-
-export type IntegrationManifest = {
-  name: string;
-  description: string;
-  icon: string;
-  color: string;
-  url: string;
-  autocompletes: {
-    slug: string;
-    params: {
-      jsonSchema: JsonSchema;
-    };
-    cacheExpirationInSeconds?: number;
-  }[];
-  dynamicSchemas: {
-    slug: string;
-    params: {
-      jsonSchema: JsonSchema;
-    };
-  }[];
-  connector: {
-    rateLimit?: RateLimit;
-    config: {
-      jsonSchema: JsonSchema;
-      uiSchema: Record<string, any>;
-    };
-    caching?: {
-      isCompatible?: boolean;
-    };
-  };
-  users?: {
-    config: {
-      jsonSchema: JsonSchema;
-      uiSchema: Record<string, any>;
-    };
-  };
-  model?: IntegrationManifestModel;
-  actions: Record<string, IntegrationManifestAction>;
-  agent?: { deployment: IntegrationManifestAgentDeployment };
+export type IntegrationColumn = {
+  slug: string;
+  type: IntegrationColumnType;
+  label: string;
+  description?: string;
 };
 
 export type IntegrationConnector<Config> = {
@@ -131,34 +43,74 @@ export type IntegrationConnector<Config> = {
   config: Config;
 };
 
-export type IntegrationAgent<DeploymentConfig> = {
-  uuid: string;
-  workspaceUuid: string;
-  deployments: { config: DeploymentConfig }[];
-  name: string;
-  icon: {
-    color: "grey" | "green" | "purple" | "yellow" | "blue" | "red";
+// AUTOCOMPLETE
+
+export type IntegrationAutocompleteGetPayload<
+  ConnectorConfig = unknown,
+  Params = unknown,
+> = {
+  connector: IntegrationConnector<ConnectorConfig>;
+  value?: any;
+  params: Params;
+};
+
+export type IntegrationAutocompleteGetResult = {
+  results: {
+    label: string;
+    value: string;
+    parent?: string;
+    description?: string;
+    configOverride?: Record<string, any>;
+  }[];
+};
+
+export type IntegrationAutocomplete = {
+  params: {
+    schema: z.ZodTypeAny;
   };
+  cacheExpirationInSeconds?: number;
+  get: (
+    payload: IntegrationAutocompleteGetPayload<any, any>,
+  ) => Promise<IntegrationAutocompleteGetResult>;
 };
 
-export type IntegrationAgentAttachment = {
-  s3Filename: string;
-  name: string;
-  contentType: string;
+// DYNAMIC SCHEMA
+
+export type IntegrationDynamicSchemaGetPayload<
+  ConnectorConfig = unknown,
+  Params = unknown,
+> = {
+  connector: IntegrationConnector<ConnectorConfig>;
+  params: Params;
 };
 
-export type IntegrationAgentMessage<MessageMeta> = {
-  text: string;
-  userUuid?: string;
-  attachments: IntegrationAgentAttachment[];
-  meta: MessageMeta;
+export type IntegrationDynamicSchemaGetResult = {
+  jsonSchema: JsonSchema;
+  uiSchema: Record<string, any>;
 };
+
+export type IntegrationDynamicSchema = {
+  params: {
+    schema: z.ZodTypeAny;
+  };
+  get: (
+    payload: IntegrationDynamicSchemaGetPayload<any, any>,
+  ) => Promise<IntegrationDynamicSchemaGetResult>;
+};
+
+// OAUTH
+
+export type IntegrationCompleteOauthPayload<Params = unknown> = {
+  params: Params;
+};
+
+export type IntegrationCompleteOauthResult = {
+  value: string;
+};
+
+// AUTHENTICATE
 
 export type IntegrationAuthenticatePayload<ConnectorConfig = unknown> = {
-  connector: IntegrationConnector<ConnectorConfig>;
-};
-
-export type IntegrationListUsersPayload<ConnectorConfig = unknown> = {
   connector: IntegrationConnector<ConnectorConfig>;
 };
 
@@ -172,6 +124,22 @@ export type IntegrationAuthenticateResult =
       reason: "unauthenticated";
       errorMessage?: string;
     };
+
+// USER
+
+export type IntegrationListUsersPayload<ConnectorConfig = unknown> = {
+  connector: IntegrationConnector<ConnectorConfig>;
+};
+
+export type IntegrationUser = {
+  id: string;
+  email: string;
+  firstName?: string | undefined;
+  lastName?: string | undefined;
+  profileImage?: string | undefined;
+};
+
+// ACTION
 
 export type IntegrationActionExecutePayload<
   ConnectorConfig = unknown,
@@ -193,167 +161,125 @@ export type IntegrationActionExecuteResult =
     }
   | { outcome: "executing" };
 
-export type IntegrationAutocompletePayload<
+export type IntegrationAction = {
+  name: string;
+  description: string;
+  config: {
+    schema: z.ZodTypeAny;
+    uiSchema: Record<string, any>;
+  };
+  rateLimits?: IntegrationRateLimitWithConfig[];
+  isSerialized?: boolean;
+  retry?: IntegrationRetry;
+  executing?: {
+    retry: IntegrationRetry;
+    withRateLimit: boolean;
+  };
+  execute: (
+    payload: IntegrationActionExecutePayload<any, any>,
+  ) => Promise<IntegrationActionExecuteResult>;
+};
+
+// EXTRACTOR
+
+export type IntegrationExtractorMode =
+  | {
+      kind: "ingest";
+      autoIngest?: boolean;
+    }
+  | {
+      kind: "fetch";
+      isIncremental: boolean;
+      minIntervalInSeconds?: number;
+      autoFetch?: boolean;
+    };
+
+export type IntegrationExtractorCreatePayload<
   ConnectorConfig = unknown,
-  Slug = string,
-  Params = unknown,
-> = {
-  connector: IntegrationConnector<ConnectorConfig>;
-  slug: Slug;
-  value?: any;
-  params: Params;
-};
-
-export type IntegrationAutocompleteResult = {
-  results: {
-    label: string;
-    value: string;
-    parent?: string;
-    description?: string;
-    configOverride?: Record<string, any>;
-  }[];
-};
-
-export type IntegrationGetDynamicSchemaPayload<
-  ConnectorConfig = unknown,
-  Slug = string,
-  Params = unknown,
-> = {
-  connector: IntegrationConnector<ConnectorConfig>;
-  slug: Slug;
-  params: Params;
-};
-
-export type IntegrationGetDynamicSchemaResult = {
-  jsonSchema: JsonSchema;
-  uiSchema: Record<string, any>;
-};
-
-export type IntegrationCompleteOauthPayload<Params = unknown> = {
-  params: Params;
-};
-
-export type IntegrationCompleteOauthResult = {
-  value: string;
-};
-
-export type IntegrationColumnType =
-  | "string"
-  | "number"
-  | "object"
-  | "array"
-  | "date"
-  | "boolean"
-  | "vector"
-  | "any";
-
-export type IntegrationColumn = {
-  slug: string;
-  type: IntegrationColumnType;
-  label: string;
-  description?: string;
-};
-
-export type IntegrationModelCreatePayload<
-  ConnectorConfig = unknown,
-  Slug = unknown,
   Config = unknown,
 > = {
   connector: IntegrationConnector<ConnectorConfig>;
   uuid: string;
-  slug: Slug;
   config: Config;
 };
 
-export type IntegrationModelUpdatePayload<
+export type IntegrationExtractorUpdatePayload<
   ConnectorConfig = unknown,
-  Slug = unknown,
   Config = unknown,
 > = {
   connector: IntegrationConnector<ConnectorConfig>;
   uuid: string;
-  slug: Slug;
   config: Config;
 };
 
-export type IntegrationModelRemovePayload<
+export type IntegrationExtractorRemovePayload<
   ConnectorConfig = unknown,
-  Slug = unknown,
   Config = unknown,
 > = {
   connector: IntegrationConnector<ConnectorConfig>;
   uuid: string;
-  slug: Slug;
   config: Config;
 };
 
-export type IntegrationModelPausePayload<
+export type IntegrationExtractorPausePayload<
   ConnectorConfig = unknown,
-  Slug = unknown,
   Config = unknown,
 > = {
   connector: IntegrationConnector<ConnectorConfig>;
   uuid: string;
-  slug: Slug;
   config: Config;
 };
 
-export type IntegrationModelResumePayload<
+export type IntegrationExtractorResumePayload<
   ConnectorConfig = unknown,
-  Slug = unknown,
   Config = unknown,
 > = {
   connector: IntegrationConnector<ConnectorConfig>;
   uuid: string;
-  slug: Slug;
   config: Config;
 };
 
-export type IntegrationModelFetchPayload<
+export type IntegrationExtractorFetchPayload<
   ConnectorConfig = unknown,
-  Slug = unknown,
   Config = unknown,
   Meta = unknown,
 > = {
   connector: IntegrationConnector<ConnectorConfig>;
   uuid: string;
-  slug: Slug;
   config: Config;
   meta?: Meta;
   isDryFetch?: boolean;
 };
 
-export type IntegrationModelCountPayload<
+export type IntegrationExtractorCountPayload<
   ConnectorConfig = unknown,
-  Slug = unknown,
   Config = unknown,
 > = {
   connector: IntegrationConnector<ConnectorConfig>;
-  slug: Slug;
   config: Config;
 };
 
-export type IntegrationModelCreateResult<Config = unknown> =
+export type IntegrationExtractorCreateResult<Config = unknown> =
   | {
       outcome: "created";
       config: Config;
     }
   | { outcome: "notCreated"; errorMessage: string };
 
-export type IntegrationModelUpdateResult<Config = unknown> =
+export type IntegrationExtractorUpdateResult<Config = unknown> =
   | {
       outcome: "updated";
       config: Config;
     }
   | { outcome: "notUpdated"; errorMessage: string };
 
-export type IntegrationModelRecord = {
-  action: "insert" | "update" | "upsert" | "remove";
+export type IntegrationExtractorRecord = {
+  kind?: "removed" | "updated" | "added";
   override: boolean;
   record: Record<string, any>;
 };
 
-export type IntegrationModelFetchResult<Meta = unknown> =
+export type IntegrationExtractorFetchResult<Meta = unknown> =
   | {
       outcome: "fetched";
       columns: IntegrationColumn[];
@@ -369,7 +295,7 @@ export type IntegrationModelFetchResult<Meta = unknown> =
           }
         | {
             kind: "records";
-            records: IntegrationModelRecord[];
+            records: IntegrationExtractorRecord[];
             hasMore: boolean;
             meta?: Meta;
           };
@@ -390,139 +316,137 @@ export type IntegrationModelFetchResult<Meta = unknown> =
           };
     };
 
-export type IntegrationModelCountResult = {
+export type IntegrationExtractorCountResult = {
   count: number;
 };
 
-export type IntegrationAgentFindChatPayload<
-  ConnectorConfig = unknown,
-  AgentDeploymentConfig = unknown,
-  Event = unknown,
-> = {
-  connector: IntegrationConnector<ConnectorConfig>;
-  agent: IntegrationAgent<AgentDeploymentConfig>;
-  event: Event;
-};
-
-export type IntegrationAgentFindChatResult<Meta = unknown> =
-  | {
-      outcome: "found";
-      agentUuid: string;
-      slug: string;
-      meta: Meta;
-    }
-  | {
-      outcome: "notFound";
-    };
-
-export type IntegrationAgentRetrieveMessagesPayload<
-  ConnectorConfig = unknown,
-  AgentDeploymentConfig = unknown,
-  Event = unknown,
-> = {
-  isNewChat: boolean;
-  connector: IntegrationConnector<ConnectorConfig>;
-  agent: IntegrationAgent<AgentDeploymentConfig>;
-  event: Event;
-};
-
-export type IntegrationAgentRetrieveMessagesResult<MessageMeta = unknown> =
-  | {
-      outcome: "retrieved";
-      messages: IntegrationAgentMessage<MessageMeta>[];
-    }
-  | {
-      outcome: "notRetrieved";
-    };
-
-export type IntegrationAgentHandleMessagePayload<
-  ConnectorConfig = unknown,
-  AgentDeploymentConfig = unknown,
-  Meta = unknown,
-  ChatMeta = unknown,
-> = {
-  connector: IntegrationConnector<ConnectorConfig>;
-  agent: IntegrationAgent<AgentDeploymentConfig>;
-  meta: Meta | null;
-  chat: {
-    meta: ChatMeta;
-  };
-  text: string;
-};
-
-export type IntegrationAgentHandleMessageResult<Meta = unknown> = {
-  meta: Meta;
-};
-
-export type IntegrationUser = {
-  id: string;
-  email: string;
-  firstName?: string | undefined;
-  lastName?: string | undefined;
-  profileImage?: string | undefined;
-};
-
-export type IntegrationAction<
-  ConfigSchema extends z.ZodTypeAny = z.ZodTypeAny,
-> = {
+export type IntegrationExtractor = {
+  name: string;
+  description: string;
   config: {
-    schema: ConfigSchema;
+    schema: z.ZodTypeAny;
+    uiSchema: Record<string, any>;
   };
-  execute: (
-    payload: IntegrationActionExecutePayload<any, any>,
-  ) => Promise<IntegrationActionExecuteResult>;
+  rateLimits?: IntegrationRateLimitWithConfig[];
+  retry?: IntegrationRetry;
+  fetching?: {
+    retry: IntegrationRetry;
+    withRateLimit: boolean;
+  };
+  mode: IntegrationExtractorMode;
+  preview: "none" | "records" | "count";
+  fetch: (
+    payload: IntegrationExtractorFetchPayload<any, any, any>,
+  ) => Promise<IntegrationExtractorFetchResult<any>>;
+  count?: (
+    payload: IntegrationExtractorCountPayload<any, any>,
+  ) => Promise<IntegrationExtractorCountResult>;
 };
 
 export type Integration = {
-  manifest: IntegrationManifest;
+  name: string;
+  url: string;
+  icon: string;
+  description: string;
+  color: string;
+  connector: {
+    rateLimit?: IntegrationRateLimit;
+    config: {
+      schema: z.ZodTypeAny;
+      uiSchema: Record<string, any>;
+    };
+    caching?: {
+      isCompatible: boolean;
+    };
+  };
   authenticate: (
     payload: IntegrationAuthenticatePayload<any>,
   ) => Promise<IntegrationAuthenticateResult>;
   actions: Record<string, IntegrationAction>;
+  extractors: Record<string, IntegrationExtractor>;
+  dynamicSchemas: Record<string, IntegrationDynamicSchema>;
+  autocompletes: Record<string, IntegrationAutocomplete>;
   listUsers?: (
     payload: IntegrationListUsersPayload<any>,
   ) => Promise<IntegrationUser[]>;
-  model?: {
-    fetch: (
-      payload: IntegrationModelFetchPayload<any, any, any, any>,
-    ) => Promise<IntegrationModelFetchResult<any>>;
-    count?: (
-      payload: IntegrationModelCountPayload<any, any, any>,
-    ) => Promise<IntegrationModelCountResult>;
-    create?: (
-      payload: IntegrationModelCreatePayload<any, any, any>,
-    ) => Promise<IntegrationModelCreateResult<any>>;
-    update?: (
-      payload: IntegrationModelUpdatePayload<any, any, any>,
-    ) => Promise<IntegrationModelUpdateResult<any>>;
-    remove?: (
-      payload: IntegrationModelRemovePayload<any, any, any>,
-    ) => Promise<void>;
-    pause?: (
-      payload: IntegrationModelPausePayload<any, any, any>,
-    ) => Promise<void>;
-    resume?: (
-      payload: IntegrationModelResumePayload<any, any, any>,
-    ) => Promise<void>;
-  };
-  agent?: {
-    findChat: (
-      payload: IntegrationAgentFindChatPayload<any, any, any>,
-    ) => Promise<IntegrationAgentFindChatResult<any>>;
-    retrieveMessages: (
-      payload: IntegrationAgentRetrieveMessagesPayload<any, any, any>,
-    ) => Promise<IntegrationAgentRetrieveMessagesResult<any>>;
-    handleMessage: (
-      payload: IntegrationAgentHandleMessagePayload<any, any, any, any>,
-    ) => Promise<IntegrationAgentHandleMessageResult<any>>;
-  };
-  autocomplete?: (
-    payload: IntegrationAutocompletePayload<any, any, any>,
-  ) => Promise<IntegrationAutocompleteResult>;
-  getDynamicSchema?: (
-    payload: IntegrationGetDynamicSchemaPayload<any, any, any>,
-  ) => Promise<IntegrationGetDynamicSchemaResult>;
   completeOauth?: (
     payload: IntegrationCompleteOauthPayload<any>,
   ) => Promise<IntegrationCompleteOauthResult>;
+};
+
+// MANIFEST
+
+export type IntegrationManifestConnector = {
+  rateLimit?: IntegrationRateLimit;
+  config: {
+    jsonSchema: JsonSchema;
+    uiSchema: Record<string, any>;
+  };
+  caching?: {
+    isCompatible?: boolean;
+  };
+};
+
+export type IntegrationManifestActionChild = {
+  text: string;
+};
+
+export type IntegrationManifestAction = {
+  name: string;
+  description: string;
+  config: {
+    jsonSchema: JsonSchema;
+    uiSchema: Record<string, any>;
+  };
+  rateLimits?: IntegrationRateLimitWithConfig[];
+  isSerialized?: boolean;
+  retry?: IntegrationRetry;
+  executing?: {
+    retry: IntegrationRetry;
+    withRateLimit: boolean;
+  };
+  children?: IntegrationManifestActionChild[];
+};
+
+export type IntegrationManifestExtractor = {
+  name: string;
+  description: string;
+  config: {
+    jsonSchema: JsonSchema;
+    uiSchema: Record<string, any>;
+  };
+  rateLimits?: IntegrationRateLimitWithConfig[];
+  retry?: IntegrationRetry;
+  fetching?: {
+    retry: IntegrationRetry;
+    withRateLimit: boolean;
+  };
+  mode: IntegrationExtractorMode;
+  preview: "none" | "records" | "count";
+};
+
+export type IntegrationManifestDynamicSchema = {
+  params: {
+    jsonSchema: JsonSchema;
+  };
+};
+
+export type IntegrationManifestAutocomplete = {
+  params: {
+    jsonSchema: JsonSchema;
+  };
+  cacheExpirationInSeconds?: number;
+};
+
+export type IntegrationManifest = {
+  name: string;
+  description: string;
+  icon: string;
+  color: string;
+  url: string;
+  connector: IntegrationManifestConnector;
+  actions: Record<string, IntegrationManifestAction>;
+  extractors: Record<string, IntegrationManifestExtractor>;
+  dynamicSchemas: Record<string, IntegrationManifestDynamicSchema>;
+  autocompletes: Record<string, IntegrationManifestAutocomplete>;
 };
