@@ -2,7 +2,12 @@ import express, { NextFunction, Response, Request, Router } from "express";
 import { Logger } from "winston";
 import bodyParser from "body-parser";
 import cors from "cors";
-import { Integration } from "./types";
+import { z } from "zod/v4";
+import type { Schema as JsonSchema } from "jsonschema";
+import { Integration, IntegrationManifest } from "./types";
+
+const toJsonSchema = (schema: z.ZodTypeAny): JsonSchema =>
+  z.toJSONSchema(schema) as JsonSchema;
 
 type Dependencies = {
   logger: Logger;
@@ -15,7 +20,7 @@ export const buildApp = (dependencies: Dependencies) => {
   const integrationRouter = Router();
 
   integrationRouter.get("/manifest", (req, res) => {
-    res.json(integration.manifest);
+    res.json(buildManifest(integration));
   });
 
   integrationRouter.post("/authenticate", async (req, res) => {
@@ -26,7 +31,7 @@ export const buildApp = (dependencies: Dependencies) => {
 
   integrationRouter.post("/listUsers", async (req, res) => {
     if (integration.listUsers === undefined) {
-      res.status(404);
+      res.json([]);
       return;
     }
 
@@ -48,49 +53,57 @@ export const buildApp = (dependencies: Dependencies) => {
     res.json(result);
   });
 
-  integrationRouter.post("/model/fetch", async (req, res) => {
-    if (integration.model === undefined) {
+  integrationRouter.post("/extractors/:slug/fetch", async (req, res) => {
+    const { slug } = req.params;
+
+    if (integration.extractors[slug] === undefined) {
       res.status(404);
       return;
     }
 
-    const result = await integration.model.fetch(req.body);
+    const result = await integration.extractors[slug].fetch(req.body);
 
     res.json(result);
   });
 
-  integrationRouter.post("/model/count", async (req, res) => {
+  integrationRouter.post("/extractors/:slug/count", async (req, res) => {
+    const { slug } = req.params;
+
     if (
-      integration.model === undefined ||
-      integration.model.count === undefined
+      integration.extractors[slug] === undefined ||
+      integration.extractors[slug].count === undefined
     ) {
       res.status(404);
       return;
     }
 
-    const result = await integration.model.count(req.body);
+    const result = await integration.extractors[slug].count(req.body);
 
     res.json(result);
   });
 
-  integrationRouter.post("/autocomplete", async (req, res) => {
-    if (integration.autocomplete === undefined) {
+  integrationRouter.post("/autocompletes/:slug", async (req, res) => {
+    const { slug } = req.params;
+
+    if (integration.autocompletes[slug] === undefined) {
       res.status(404);
       return;
     }
 
-    const result = await integration.autocomplete(req.body);
+    const result = await integration.autocompletes[slug].get(req.body);
 
     res.json(result);
   });
 
-  integrationRouter.post("/getDynamicSchema", async (req, res) => {
-    if (integration.getDynamicSchema === undefined) {
+  integrationRouter.post("/dynamicSchemas/:slug", async (req, res) => {
+    const { slug } = req.params;
+
+    if (integration.dynamicSchemas[slug] === undefined) {
       res.status(404);
       return;
     }
 
-    const result = await integration.getDynamicSchema(req.body);
+    const result = await integration.dynamicSchemas[slug].get(req.body);
 
     res.json(result);
   });
@@ -121,4 +134,78 @@ export const buildApp = (dependencies: Dependencies) => {
   });
 
   return app;
+};
+
+const buildManifest = (integration: Integration): IntegrationManifest => {
+  return {
+    name: integration.name,
+    description: integration.description,
+    icon: integration.icon,
+    color: integration.color,
+    url: integration.url,
+    connector: {
+      rateLimit: integration.connector.rateLimit,
+      config: {
+        jsonSchema: toJsonSchema(integration.connector.config.schema),
+        uiSchema: integration.connector.config.uiSchema,
+      },
+      caching: integration.connector.caching,
+    },
+    actions: Object.fromEntries(
+      Object.entries(integration.actions).map(([key, action]) => [
+        key,
+        {
+          name: action.name,
+          description: action.description,
+          config: {
+            jsonSchema: toJsonSchema(action.config.schema),
+            uiSchema: action.config.uiSchema,
+          },
+          rateLimits: action.rateLimits,
+          isSerialized: action.isSerialized,
+          retry: action.retry,
+          executing: action.executing,
+        },
+      ]),
+    ),
+    extractors: Object.fromEntries(
+      Object.entries(integration.extractors).map(([key, extractor]) => [
+        key,
+        {
+          name: extractor.name,
+          description: extractor.description,
+          config: {
+            jsonSchema: toJsonSchema(extractor.config.schema),
+            uiSchema: extractor.config.uiSchema,
+          },
+          rateLimits: extractor.rateLimits,
+          retry: extractor.retry,
+          fetching: extractor.fetching,
+          mode: extractor.mode,
+          preview: extractor.preview,
+        },
+      ]),
+    ),
+    dynamicSchemas: Object.fromEntries(
+      Object.entries(integration.dynamicSchemas).map(([key, dynamicSchema]) => [
+        key,
+        {
+          params: {
+            jsonSchema: toJsonSchema(dynamicSchema.params.schema),
+          },
+        },
+      ]),
+    ),
+    autocompletes: Object.fromEntries(
+      Object.entries(integration.autocompletes).map(([key, autocomplete]) => [
+        key,
+        {
+          params: {
+            jsonSchema: toJsonSchema(autocomplete.params.schema),
+          },
+          cacheExpirationInSeconds: autocomplete.cacheExpirationInSeconds,
+        },
+      ]),
+    ),
+  };
 };

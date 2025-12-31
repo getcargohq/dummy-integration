@@ -1,35 +1,40 @@
 import { IntegrationColumnType } from "../types";
+import { z } from "zod/v4";
 
 export const reshapeZodSchemaToColumnType = (
-  schema: Zod.ZodType,
+  schema: z.ZodType,
 ): IntegrationColumnType => {
-  const def: any = schema._def;
-  const type: any =
-    def.innerType?._def?.innerType?._def?.typeName ||
-    def.innerType?._def?.typeName ||
-    def.typeName;
+  const typeName = schema.def.type;
 
-  if (type === "ZodNumber") {
+  // Unwrap nullable types
+  if (typeName === "nullable" || typeName === "optional") {
+    const innerSchema = (schema.def as unknown as { innerType: z.ZodType })
+      .innerType;
+
+    return reshapeZodSchemaToColumnType(innerSchema);
+  }
+
+  if (typeName === "number" || typeName === "int" || typeName === "bigint") {
     return "number";
   }
 
-  if (type === "ZodString") {
+  if (typeName === "string" || typeName === "literal") {
     return "string";
   }
 
-  if (type === "ZodEnum") {
+  if (typeName === "enum") {
     return "string";
   }
 
-  if (type === "ZodArray") {
+  if (typeName === "array") {
     return "array";
   }
 
-  if (type === "ZodDate") {
+  if (typeName === "date") {
     return "date";
   }
 
-  if (type === "ZodBoolean") {
+  if (typeName === "boolean") {
     return "boolean";
   }
 
