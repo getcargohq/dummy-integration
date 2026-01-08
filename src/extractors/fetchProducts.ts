@@ -17,7 +17,7 @@ const metaSchema = z.object({
 
 export const buildFetchProductsExtractor = (): IntegrationExtractor => {
   return {
-    name: "fetchProducts",
+    name: "Fetch Products",
     description: "Fetch products",
     config: {
       schema: configSchema,

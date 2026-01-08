@@ -1,4 +1,4 @@
-import { z } from "zod";
+import { z } from "zod/v4";
 import { reshapeZodSchemaToColumnType, sentenceCase } from "../../utils";
 
 export const zodProduct = z.object({
