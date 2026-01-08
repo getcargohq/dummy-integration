@@ -8,12 +8,25 @@ import {
 import { z } from "zod/v4";
 
 const configSchema = z.object({
-  mappings: z.array(z.object({ name: z.string(), value: z.any() })).optional(),
+  mappings: z
+    .array(
+      z.object({
+        name: z.string().meta({
+          title: "Name",
+          description: "The name of the property to create",
+        }),
+        value: z.any().meta({
+          title: "Value",
+          description: "The value of the property to create",
+        }),
+      }),
+    )
+    .optional(),
 });
 
 export const buildCreateProductAction = (): IntegrationAction => {
   return {
-    name: "createProduct",
+    name: "Create Product",
     description: "Create a new product",
     config: {
       schema: configSchema,

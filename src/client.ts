@@ -1,6 +1,6 @@
 import axios from "axios";
 import { Product, zodProduct } from "./schemas/product";
-import { z } from "zod";
+import { z } from "zod/v4";
 
 const BASE_URL = "https://dummyjson.com";
 

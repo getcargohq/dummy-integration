@@ -12,8 +12,14 @@ const configSchema = z.object({
   mappings: z
     .array(
       z.object({
-        name: z.string(),
-        value: z.any(),
+        name: z.string().meta({
+          title: "Name",
+          description: "The name of the property to update",
+        }),
+        value: z.any().meta({
+          title: "Value",
+          description: "The value of the property to update",
+        }),
       }),
     )
     .optional(),
@@ -21,7 +27,7 @@ const configSchema = z.object({
 
 export const buildUpdateProductAction = (): IntegrationAction => {
   return {
-    name: "updateProduct",
+    name: "Update Product",
     description: "Update a product",
     config: {
       schema: configSchema,

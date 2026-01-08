@@ -7,7 +7,198 @@ import type { Schema as JsonSchema } from "jsonschema";
 import { Integration, IntegrationManifest } from "./types";
 
 const toJsonSchema = (schema: z.ZodTypeAny): JsonSchema =>
-  z.toJSONSchema(schema) as JsonSchema;
+  z.toJSONSchema(schema, {
+    unrepresentable: "any",
+    override: (context) => {
+      const definition = context.zodSchema._zod.def;
+
+      switch (definition.type) {
+        // Support z.any() as array of all types
+        case "any": {
+          (context.jsonSchema as unknown as { type: string[] }).type = [
+            "string",
+            "number",
+            "integer",
+            "boolean",
+            "object",
+            "array",
+            "null",
+          ];
+          break;
+        }
+
+        // Support 'date' type as string with date-time format
+        case "date": {
+          context.jsonSchema.type = "string";
+          context.jsonSchema.format = "date-time";
+          break;
+        }
+
+        // Remove additionalProperties from all schemas in allOf for intersections
+        case "intersection": {
+          if (context.jsonSchema.allOf !== undefined) {
+            for (const schema of context.jsonSchema.allOf) {
+              if (schema.additionalProperties !== undefined) {
+                delete schema.additionalProperties;
+              }
+            }
+          }
+          break;
+        }
+
+        // Refactor union into oneOf + allOf with if/else
+        case "union": {
+          const { discriminator } = context.zodSchema._zod.def as {
+            discriminator?: string;
+          };
+
+          if (discriminator === undefined) {
+            if (
+              context.jsonSchema.anyOf !== undefined &&
+              context.jsonSchema.anyOf.length > 0
+            ) {
+              const { anyOf } = context.jsonSchema;
+              const types = anyOf
+                .map((option) => {
+                  if (
+                    option.type !== undefined &&
+                    ["string", "number", "integer", "boolean"].includes(
+                      option.type,
+                    )
+                  ) {
+                    return option.type as string;
+                  }
+
+                  return undefined;
+                })
+                .filter((type): type is string => type !== undefined);
+
+              if (types.length !== anyOf.length) {
+                break;
+              }
+
+              (context.jsonSchema as unknown as { type: string[] }).type =
+                types;
+              delete context.jsonSchema.anyOf;
+
+              break;
+            }
+            break;
+          }
+
+          const options: Array<{
+            discriminatorProperty: z.core.JSONSchema.JSONSchema;
+            otherProperties: Record<string, z.core.JSONSchema.JSONSchema>;
+            requiredOtherProperties: string[];
+          }> = context.jsonSchema.anyOf!.map((option) => {
+            if (option.properties === undefined) {
+              throw new Error(`Missing properties in union option.`);
+            }
+
+            const discriminatorProperty = option.properties[discriminator];
+
+            if (
+              discriminatorProperty === undefined ||
+              typeof discriminatorProperty === "boolean"
+            ) {
+              throw new Error(
+                `Missing discriminator property "${discriminator}" in union option.`,
+              );
+            }
+
+            const otherProperties = Object.fromEntries(
+              Object.entries(option.properties).filter(([key, value]) => {
+                return key !== discriminator && typeof value !== "boolean";
+              }) as Array<[string, z.core.JSONSchema.JSONSchema]>,
+            );
+
+            const requiredOtherProperties =
+              option.required !== undefined
+                ? option.required.filter((key) => {
+                    return key !== discriminator;
+                  })
+                : [];
+
+            return {
+              discriminatorProperty,
+              otherProperties,
+              requiredOtherProperties,
+            };
+          });
+
+          const defaultOption = options[0];
+
+          if (defaultOption === undefined) {
+            throw new Error(`Cannot process union with no options.`);
+          }
+
+          const discriminatorMeta = context.jsonSchema["discriminator"] as
+            | {
+                title?: string;
+                description?: string;
+              }
+            | undefined;
+
+          context.jsonSchema.type = "object";
+          context.jsonSchema.properties = {
+            [discriminator]: {
+              type: "string",
+              title:
+                discriminatorMeta !== undefined
+                  ? discriminatorMeta.title
+                  : undefined,
+              description:
+                discriminatorMeta !== undefined
+                  ? discriminatorMeta.description
+                  : undefined,
+              oneOf: options.map((option) => {
+                return {
+                  const: option.discriminatorProperty.const,
+                  title: option.discriminatorProperty.title,
+                  description: option.discriminatorProperty.description,
+                };
+              }),
+              default: defaultOption.discriminatorProperty.const,
+            },
+          };
+          context.jsonSchema.required = [discriminator];
+          context.jsonSchema.allOf = options
+            .map<z.core.JSONSchema.JSONSchema | undefined>((option) => {
+              if (Object.keys(option.otherProperties).length === 0) {
+                return undefined;
+              }
+
+              return {
+                if: {
+                  properties: {
+                    [discriminator]: {
+                      const: option.discriminatorProperty.const,
+                    },
+                  },
+                },
+                then: {
+                  type: "object",
+                  properties: option.otherProperties,
+                  required: option.requiredOtherProperties,
+                },
+              };
+            })
+            .filter((schema): schema is z.core.JSONSchema.JSONSchema => {
+              return schema !== undefined;
+            });
+
+          delete context.jsonSchema.anyOf;
+          delete context.jsonSchema["discriminator"];
+
+          break;
+        }
+
+        default: {
+          break;
+        }
+      }
+    },
+  }) as JsonSchema;
 
 type Dependencies = {
   logger: Logger;

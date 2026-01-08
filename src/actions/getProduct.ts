@@ -8,12 +8,15 @@ import {
 import { z } from "zod/v4";
 
 const configSchema = z.object({
-  id: z.union([z.string(), z.number()]),
+  id: z.union([z.string(), z.number()]).meta({
+    title: "ID",
+    description: "The ID of the product to get",
+  }),
 });
 
 export const buildGetProductAction = (): IntegrationAction => {
   return {
-    name: "getProduct",
+    name: "Get Product",
     description: "Get a product",
     config: {
       schema: configSchema,

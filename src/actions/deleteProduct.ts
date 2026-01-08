@@ -8,12 +8,15 @@ import {
 import { z } from "zod/v4";
 
 const configSchema = z.object({
-  id: z.union([z.string(), z.number()]),
+  id: z.union([z.string(), z.number()]).meta({
+    title: "ID",
+    description: "The ID of the product to delete",
+  }),
 });
 
 export const buildDeleteProductAction = (): IntegrationAction => {
   return {
-    name: "deleteProduct",
+    name: "Delete Product",
     description: "Delete a product",
     config: {
       schema: configSchema,
