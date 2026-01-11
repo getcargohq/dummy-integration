@@ -21,7 +21,6 @@ export const buildFetchProductsExtractor = (): IntegrationExtractor => {
     description: "Fetch products",
     config: {
       schema: configSchema,
-      uiSchema: {},
     },
     mode: {
       kind: "fetch",

@@ -20,7 +20,6 @@ export const buildGetProductAction = (): IntegrationAction => {
     description: "Get a product",
     config: {
       schema: configSchema,
-      uiSchema: {},
     },
     execute: async (
       payload: IntegrationActionExecutePayload<
