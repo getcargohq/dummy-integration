@@ -20,7 +20,6 @@ export const buildDeleteProductAction = (): IntegrationAction => {
     description: "Delete a product",
     config: {
       schema: configSchema,
-      uiSchema: {},
     },
     execute: async (
       payload: IntegrationActionExecutePayload<

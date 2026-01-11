@@ -86,7 +86,7 @@ export type IntegrationDynamicSchemaGetPayload<
 
 export type IntegrationDynamicSchemaGetResult = {
   jsonSchema: JsonSchema;
-  uiSchema: Record<string, any>;
+  uiSchema?: Record<string, any>;
 };
 
 export type IntegrationDynamicSchema = {
@@ -166,7 +166,7 @@ export type IntegrationAction = {
   description: string;
   config: {
     schema: z.ZodTypeAny;
-    uiSchema: Record<string, any>;
+    uiSchema?: Record<string, any>;
   };
   rateLimits?: IntegrationRateLimitWithConfig[];
   isSerialized?: boolean;
@@ -325,7 +325,7 @@ export type IntegrationExtractor = {
   description: string;
   config: {
     schema: z.ZodTypeAny;
-    uiSchema: Record<string, any>;
+    uiSchema?: Record<string, any>;
   };
   rateLimits?: IntegrationRateLimitWithConfig[];
   retry?: IntegrationRetry;
@@ -353,7 +353,7 @@ export type Integration = {
     rateLimit?: IntegrationRateLimit;
     config: {
       schema: z.ZodTypeAny;
-      uiSchema: Record<string, any>;
+      uiSchema?: Record<string, any>;
     };
     caching?: {
       isCompatible: boolean;
@@ -380,7 +380,7 @@ export type IntegrationManifestConnector = {
   rateLimit?: IntegrationRateLimit;
   config: {
     jsonSchema: JsonSchema;
-    uiSchema: Record<string, any>;
+    uiSchema?: Record<string, any>;
   };
   caching?: {
     isCompatible?: boolean;
@@ -396,7 +396,7 @@ export type IntegrationManifestAction = {
   description: string;
   config: {
     jsonSchema: JsonSchema;
-    uiSchema: Record<string, any>;
+    uiSchema?: Record<string, any>;
   };
   rateLimits?: IntegrationRateLimitWithConfig[];
   isSerialized?: boolean;
@@ -413,7 +413,7 @@ export type IntegrationManifestExtractor = {
   description: string;
   config: {
     jsonSchema: JsonSchema;
-    uiSchema: Record<string, any>;
+    uiSchema?: Record<string, any>;
   };
   rateLimits?: IntegrationRateLimitWithConfig[];
   retry?: IntegrationRetry;

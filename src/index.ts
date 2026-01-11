@@ -22,7 +22,6 @@ export const buildDummyIntegration = (): Integration => {
     connector: {
       config: {
         schema: connectorConfigSchema,
-        uiSchema: {},
       },
     },
     actions: {
